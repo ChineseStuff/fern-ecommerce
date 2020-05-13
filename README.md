@@ -1,4 +1,4 @@
-# Trabajos prácticos Final
+# Trabajo práctico Final
 
 An Ecommerce app built with:
 
