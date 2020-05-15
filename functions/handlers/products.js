@@ -22,6 +22,34 @@ exports.getAllProducts = (req, res) => {
     .catch(err => console.error(err));
 };
 
+exports.getProductBySku = (req, res) => {
+  let productData = {};
+
+  db.doc(`/products/${req.params.productSku}`)
+    .get()
+    .then(doc => {
+      if (!doc.exists) {
+        return res.status(404).json({ error: 'Product not found' });
+      }
+      productData = doc.data();
+      return db
+        .collection('likes')
+        .where('productSku', '==', req.params.productSku)
+        .get();
+    })
+    .then(data => {
+      productData.likes = [];
+      data.forEach(doc => {
+        productData.likes.push(doc.data());
+      });
+      return res.json(productData);
+    })
+    .catch(err => {
+      console.error(err);
+      res.status(500).json({ error: err.code });
+    });
+};
+
 exports.createProduct = (req, res) => {
   const newProduct = {
     userHandle: req.user.handle,
@@ -54,6 +82,30 @@ exports.createProduct = (req, res) => {
     .catch(err => {
       res.status(500).json({ error: 'something went grong' });
       console.error(err);
+    });
+};
+exports.deleteProduct = (req, res) => {
+  const productToBeDeleted = db.doc(`/products/${req.params.productSku}`);
+  productToBeDeleted
+    .get()
+    .then(doc => {
+      if (!doc.exists) {
+        return res.status(404).json({ error: 'Product Not Found' });
+      }
+      if (doc.data().userHandle !== req.user.handle) {
+        return res
+          .status(403)
+          .json({ error: `You don't have permission to delete this product` });
+      }
+      productToBeDeleted.delete().then(() => {
+        return res.status(200).json({
+          message: `Product ${req.params.productSku} removed successfully`,
+        });
+      });
+    })
+    .catch(err => {
+      console.error(err);
+      res.status(500).json({ error: err.code });
     });
 };
 
@@ -115,34 +167,91 @@ exports.uploadImage = (req, res) => {
   busboy.end(req.rawBody);
 };
 
-exports.getProductBySku = (req, res) => {
-  let productData = {};
+exports.likeProduct = (req, res) => {
+  const likeDocument = db
+    .collection('likes')
+    .where('userHandle', '==', req.user.handle)
+    .where('productSku', '==', req.params.productSku)
+    .limit(1);
 
-  db.doc(`/products/${req.params.productSku}`)
+  const productDocument = db.doc(`/products/${req.params.productSku}`);
+  let productData;
+
+  productDocument
     .get()
     .then(doc => {
-      if (!doc.exists) {
-        return res.status(404).json({ error: 'Product not found' });
+      if (doc.exists) {
+        productData = doc.data();
+        return likeDocument.get();
+      } else {
+        return res
+          .status(404)
+          .json({ error: `product ${req.params.productSku} not found` });
       }
-      productData = doc.data();
-      return db
-        .collection('likes')
-        .where('productSku', '==', req.params.productSku)
-        .get();
     })
     .then(data => {
-      productData.likes = [];
-      data.forEach(doc => {
-        productData.likes.push(doc.data());
-      });
-      return res.json(productData);
+      if (data.empty) {
+        return db
+          .collection('likes')
+          .add({
+            userHandle: req.user.handle,
+            productSku: req.params.productSku,
+          })
+          .then(() => {
+            productData.likeCount++;
+            return productDocument.update({ likeCount: productData.likeCount });
+          })
+          .then(() => {
+            return res.json(productData);
+          })
+          .catch(err => console.error(err));
+      } else {
+        return res.status(400).json({ error: 'Product already liked' });
+      }
     })
     .catch(err => {
       console.error(err);
       res.status(500).json({ error: err.code });
     });
 };
+exports.unlikeProduct = (req, res) => {
+  const likeDocument = db
+    .collection('likes')
+    .where('userHandle', '==', req.user.handle)
+    .where('productSku', '==', req.params.productSku)
+    .limit(1);
 
-exports.likeProduct = (req, res) => {};
+  const productDocument = db.doc(`/products/${req.params.productSku}`);
+  let productData;
 
-exports.unlikeProduct = (req, res) => {};
+  productDocument
+    .get()
+    .then(doc => {
+      if (doc.exists) {
+        productData = doc.data();
+        return likeDocument.get();
+      } else {
+        return res.status(404).json({ error: 'product not found' });
+      }
+    })
+    .then(data => {
+      if (data.empty) {
+        return res.status(400).json({ error: 'Product not liked' });
+      } else {
+        return db
+          .doc(`/likes/${data.docs[0].id}`)
+          .delete()
+          .then(() => {
+            productData.likeCount--;
+            return productDocument.update({ likeCount: productData.likeCount });
+          })
+          .then(() => {
+            res.json(productData);
+          });
+      }
+    })
+    .catch(err => {
+      console.error(err);
+      res.status(500).json({ error: err.code });
+    });
+};
