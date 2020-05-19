@@ -15,6 +15,8 @@ exports.getAllProducts = (req, res) => {
           price: doc.data().price,
           sku: doc.data().sku,
           createdAt: doc.data().createdAt,
+          likeCount: doc.data().likeCount,
+          imageUrl: doc.data().imageUrl,
         });
       });
       res.json(products);
