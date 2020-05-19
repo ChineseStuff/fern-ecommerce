@@ -1,6 +1,6 @@
-# An Ecommerce Express App
+# An Ecommerce Express server
 
 - Firebase Modules => - Cloud Functions - CloudFirestore - Storage - Authentication
 - Express
 
-This app serves a React App fern-ecommerce-client
+This serves a React client App called fern-ecommerce-client
