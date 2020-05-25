@@ -8,7 +8,6 @@ let db = {
       sku: 'sku-del-producto',
       imageUrl: 'url-de-imagen',
       createdAt: '2020-05-13T05:59:46.234Z',
-      likeCount: 5,
     },
   ],
   users: [

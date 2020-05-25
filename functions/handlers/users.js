@@ -56,36 +56,6 @@ exports.signUpUser = (req, res) => {
     });
 };
 
-(req, res) => {
-  const user = {
-    email: req.body.email,
-    password: req.body.password,
-  };
-
-  firebase
-    .auth()
-    .signInWithEmailAndPassword(user.email, user.password)
-    .then(data => {
-      return data.user.getIdToken();
-    })
-    .then(token => {
-      return res.json({ token });
-    })
-    .catch(err => {
-      console.error(err);
-      if (
-        err.code === 'auth/wrong-password' ||
-        err.code === 'auth/user-not-found'
-      ) {
-        return res
-          .status(400)
-          .json({ general: 'Wrong credentials, please try again' });
-      } else {
-        return res.status(500).json({ error: err.code });
-      }
-    });
-};
-
 exports.loginUser = (req, res) => {
   const user = {
     email: req.body.email,
@@ -117,15 +87,15 @@ exports.getAuthenticatedUser = (req, res) => {
       if (doc.exists) {
         userData.credentials = doc.data();
         return db
-          .collection('likes')
+          .collection('carts')
           .where('userHandle', '==', req.user.handle)
           .get();
       }
     })
     .then(data => {
-      userData.likes = [];
+      userData.cart = [];
       data.forEach(doc => {
-        userData.likes.push(doc.data());
+        userData.cart.push(doc.data());
       });
       return res.json(userData);
     })
