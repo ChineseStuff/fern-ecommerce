@@ -7,8 +7,8 @@ const {
   getProductBySku,
   createProduct,
   uploadImage,
-  likeProduct,
-  unlikeProduct,
+  addProductToCart,
+  removeProductFromCart,
   deleteProduct,
 } = require('./handlers/products');
 const {
@@ -18,11 +18,11 @@ const {
 } = require('./handlers/users');
 const FBAuth = require('./utils/fbAuth');
 
-// Screams Routes
+// Products Routes
 app.get('/products', getAllProducts);
 app.get('/product/:productSku', getProductBySku);
-app.get('/product/:productSku/like', FBAuth, likeProduct);
-app.get('/product/:productSku/unlike', FBAuth, unlikeProduct);
+app.get('/product/:productSku/addToCart', FBAuth, addProductToCart);
+app.get('/product/:productSku/removeFromCart', FBAuth, removeProductFromCart);
 app.post('/product', FBAuth, createProduct);
 app.post('/product/uploadImage', FBAuth, uploadImage);
 app.delete('/product/:productSku', FBAuth, deleteProduct);
@@ -38,7 +38,7 @@ exports.onProductDelete = functions.firestore
     const productSku = context.params.productSku;
     const batch = db.batch();
     return db
-      .collection('likes')
+      .collection('carts')
       .where('productSku', '==', productSku)
       .get()
       .then(data => {
