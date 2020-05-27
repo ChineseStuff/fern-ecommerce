@@ -26,7 +26,7 @@ exports.getAllProducts = (req, res) => {
 exports.getProductBySku = (req, res) => {
   let productData = {};
 
-  db.doc(`/products/${req.params.productSku}`)
+  db.doc(`/products/${req.params.sku}`)
     .get()
     .then(doc => {
       if (!doc.exists) {
@@ -64,9 +64,15 @@ exports.createProduct = (req, res) => {
       }
     })
     .then(doc => {
-      return res.status(201).json({
-        message: `Product ${newProduct.sku} created successfully`,
-      });
+      db.doc(`/products/${newProduct.sku}`)
+        .get()
+        .then(doc => {
+          return res.status(201).json(doc.data());
+        })
+        .catch(err => {
+          console.error(err);
+          return res.status(500).json({ error: err.code });
+        });
     })
     .catch(err => {
       res.status(500).json({ error: 'something went grong' });
@@ -74,7 +80,7 @@ exports.createProduct = (req, res) => {
     });
 };
 exports.deleteProduct = (req, res) => {
-  const productToBeDeleted = db.doc(`/products/${req.params.productSku}`);
+  const productToBeDeleted = db.doc(`/products/${req.params.sku}`);
   productToBeDeleted
     .get()
     .then(doc => {
@@ -88,7 +94,7 @@ exports.deleteProduct = (req, res) => {
       }
       productToBeDeleted.delete().then(() => {
         return res.status(200).json({
-          message: `Product ${req.params.productSku} removed successfully`,
+          message: `Product ${req.params.sku} removed successfully`,
         });
       });
     })
@@ -108,10 +114,10 @@ exports.uploadImage = (req, res) => {
 
   let imageFileName;
   let imageToBeUploaded = {};
-  let productSku;
+  let sku;
 
   busboy.on('field', (fieldname, val) => {
-    if (fieldname === 'sku') productSku = val;
+    if (fieldname === 'sku') sku = val;
   });
 
   busboy.on('file', (fieldname, file, filename, encoding, mimetype) => {
@@ -141,16 +147,16 @@ exports.uploadImage = (req, res) => {
       })
       .then(() => {
         const imageUrl = `https://firebasestorage.googleapis.com/v0/b/${config.storageBucket}/o/${imageFileName}?alt=media`;
-        return db.doc(`/products/${productSku}`).update({ imageUrl });
+        return db.doc(`/products/${sku}`).update({ imageUrl });
       })
       .then(() => {
-        res.json({ message: `Image uploaded successfully ${productSku}` });
+        res.json({ message: `Image uploaded successfully ${sku}` });
       })
       .catch(err => {
         console.error(err);
         return res
           .status(500)
-          .json({ error: err.code, heders: JSON.stringify(productSku) });
+          .json({ error: err.code, heders: JSON.stringify(sku) });
       });
   });
   busboy.end(req.rawBody);
@@ -160,7 +166,7 @@ exports.addProductToCart = (req, res) => {
   const cartDocuments = db
     .collection('carts')
     .where('userHandle', '==', req.user.handle)
-    .where('productSku', '==', req.params.productSku)
+    .where('sku', '==', req.params.sku)
     .limit(1);
 
   cartDocuments
@@ -171,13 +177,11 @@ exports.addProductToCart = (req, res) => {
           .collection('carts')
           .add({
             userHandle: req.user.handle,
-            productSku: req.params.productSku,
+            sku: req.params.sku,
             qty: 1,
           })
-          .then(ref => {
-            return res
-              .status(200)
-              .json(`Product ${req.params.productSku} added to cart`);
+          .then(() => {
+            return res.status(200).json({ sku: req.params.sku });
           })
           .catch(err => {
             return res.status(500).json({ error: err.code });
@@ -188,7 +192,7 @@ exports.addProductToCart = (req, res) => {
           .doc(`/carts/${prodId}`)
           .update({ qty: data.docs[0].data().qty + 1 })
           .then(doc => {
-            return res.json(doc);
+            return res.json({ sku: req.params.sku });
           })
           .catch(err => {
             return res.status(500).json({ error: err.code });
@@ -200,11 +204,11 @@ exports.addProductToCart = (req, res) => {
       res.status(500).json({ error: err.code });
     });
 };
-exports.removeProductFromCart = (req, res) => {
+exports.decreseProductFromCart = (req, res) => {
   const cartDocuments = db
     .collection('carts')
     .where('userHandle', '==', req.user.handle)
-    .where('productSku', '==', req.params.productSku)
+    .where('sku', '==', req.params.sku)
     .limit(1);
 
   cartDocuments
@@ -219,9 +223,7 @@ exports.removeProductFromCart = (req, res) => {
             .doc(`/carts/${prod.id}`)
             .update({ qty: prod.data().qty - 1 })
             .then(doc => {
-              return res
-                .status(200)
-                .json(`Product ${req.params.productSku} removed`);
+              return res.status(200).json({ sku: req.params.sku });
             })
             .catch(err => res.status(500).json({ error: err.code }));
         } else {
@@ -229,11 +231,38 @@ exports.removeProductFromCart = (req, res) => {
             .doc(`/carts/${prod.id}`)
             .delete()
             .then(() => {
-              return res
-                .status(200)
-                .json(`Product ${req.params.productSku} removed`);
-            });
+              return res.status(200).json({ sku: req.params.sku });
+            })
+            .catch(err => res.status(500).json({ error: err.code }));
         }
+      }
+    })
+    .catch(err => {
+      console.error(err.code);
+      res.status(500).json({ error: err.code });
+    });
+};
+exports.removeProductFromCart = (req, res) => {
+  const cartDocuments = db
+    .collection('carts')
+    .where('userHandle', '==', req.user.handle)
+    .where('sku', '==', req.params.sku)
+    .limit(1);
+
+  cartDocuments
+    .get()
+    .then(data => {
+      if (data.empty) {
+        return res.status(400).json({ error: 'Product not in cart' });
+      } else {
+        const prod = data.docs[0];
+        return db
+          .doc(`/carts/${prod.id}`)
+          .delete()
+          .then(() => {
+            return res.status(200).json({ sku: req.params.sku });
+          })
+          .catch(err => res.status(500).json({ error: err.code }));
       }
     })
     .catch(err => {

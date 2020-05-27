@@ -8,6 +8,7 @@ const {
   createProduct,
   uploadImage,
   addProductToCart,
+  decreseProductFromCart,
   removeProductFromCart,
   deleteProduct,
 } = require('./handlers/products');
@@ -20,12 +21,13 @@ const FBAuth = require('./utils/fbAuth');
 
 // Products Routes
 app.get('/products', getAllProducts);
-app.get('/product/:productSku', getProductBySku);
-app.get('/product/:productSku/addToCart', FBAuth, addProductToCart);
-app.get('/product/:productSku/removeFromCart', FBAuth, removeProductFromCart);
+app.get('/product/:sku', getProductBySku);
+app.get('/product/:sku/addToCart', FBAuth, addProductToCart);
+app.get('/product/:sku/decreseFromCart', FBAuth, decreseProductFromCart);
+app.get('/product/:sku/removeFromCart', FBAuth, removeProductFromCart);
 app.post('/product', FBAuth, createProduct);
 app.post('/product/uploadImage', FBAuth, uploadImage);
-app.delete('/product/:productSku', FBAuth, deleteProduct);
+app.delete('/product/:sku', FBAuth, deleteProduct);
 
 //Users Routes
 app.post('/signup', signUpUser);
@@ -33,13 +35,13 @@ app.post('/login', loginUser);
 app.get('/user', FBAuth, getAuthenticatedUser);
 
 exports.onProductDelete = functions.firestore
-  .document('/products/{productSku}')
+  .document('/products/{sku}')
   .onDelete((snapshot, context) => {
-    const productSku = context.params.productSku;
+    const sku = context.params.sku;
     const batch = db.batch();
     return db
       .collection('carts')
-      .where('productSku', '==', productSku)
+      .where('sku', '==', sku)
       .get()
       .then(data => {
         data.forEach(doc => {
