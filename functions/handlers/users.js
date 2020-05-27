@@ -81,6 +81,7 @@ exports.loginUser = (req, res) => {
 
 exports.getAuthenticatedUser = (req, res) => {
   let userData = {};
+
   db.doc(`/users/${req.user.handle}`)
     .get()
     .then(doc => {
@@ -94,8 +95,18 @@ exports.getAuthenticatedUser = (req, res) => {
     })
     .then(data => {
       userData.cart = [];
+      let promises = [];
       data.forEach(doc => {
         userData.cart.push(doc.data());
+        promises.push(db.doc(`/products/${doc.data().sku}`).get());
+      });
+      return Promise.all(promises);
+    })
+    .then(snapshots => {
+      snapshots.forEach(doc => {
+        userData.cart = userData.cart.map(item =>
+          item.sku === doc.data().sku ? { ...item, ...doc.data() } : item
+        );
       });
       return res.json(userData);
     })
