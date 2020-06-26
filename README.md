@@ -10,4 +10,4 @@ This serves a React client App called fern-ecommerce-client
 https://us-central1-utn-fern-ecommerce.cloudfunctions.net/api
 
 ## Demo:
-[Here!](https://utn-fern-ecommerce.web.app/)
+https://utn-fern-ecommerce.web.app/
